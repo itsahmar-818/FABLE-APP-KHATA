@@ -1,0 +1,801 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0b1220">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<title>RAMS Core OS v2.0 — Enterprise Edition</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      colors: {
+        ink: { 950:'#070d19', 900:'#0b1220', 850:'#0f1729', 800:'#131e33', 700:'#1c2a45', 600:'#2b3d5f' },
+        brand:{ 400:'#38bdf8', 500:'#0ea5e9', 600:'#0284c7' },
+        gold: { 400:'#fbbf24', 500:'#f59e0b' }
+      },
+      fontFamily: { sans:['Segoe UI','Inter','system-ui','sans-serif'], mono:['Consolas','ui-monospace','monospace'] }
+    }
+  }
+}
+</script>
+<style>
+  * { -webkit-tap-highlight-color: transparent; }
+  html { scroll-behavior:smooth; }
+  body { background:#070d19; }
+  ::-webkit-scrollbar { width:6px; height:6px; }
+  ::-webkit-scrollbar-thumb { background:#2b3d5f; border-radius:99px; }
+  .glass { background:linear-gradient(160deg, rgba(19,30,51,.92), rgba(11,18,32,.96)); border:1px solid rgba(56,189,248,.10); }
+  .stat-glow { box-shadow: 0 10px 30px -12px rgba(2,132,199,.35); }
+  .tab-active { color:#38bdf8 !important; }
+  .tab-active .tab-pill { background:rgba(56,189,248,.14); }
+  input[type=number]::-webkit-inner-spin-button { -webkit-appearance:none; }
+  .fade-in { animation:fadeIn .25s ease both; }
+  @keyframes fadeIn { from{opacity:0; transform:translateY(8px)} to{opacity:1; transform:none} }
+  .modal-anim { animation:pop .22s cubic-bezier(.2,.9,.3,1.2) both; }
+  @keyframes pop { from{opacity:0; transform:scale(.96) translateY(10px)} to{opacity:1; transform:none} }
+  /* ── PRINT: show statement only ── */
+  @media print {
+    body * { visibility:hidden !important; }
+    #stmtPaper, #stmtPaper * { visibility:visible !important; }
+    #stmtPaper { position:absolute !important; inset:0 !important; width:100% !important; margin:0 !important; border-radius:0 !important; box-shadow:none !important; max-height:none !important; overflow:visible !important; }
+    #stmtModal { position:static !important; background:#fff !important; padding:0 !important; }
+  }
+</style>
+</head>
+<body class="text-slate-200 font-sans min-h-screen pb-24 md:pb-8 selection:bg-sky-500/30">
+
+<!-- ══════════════ APP HEADER ══════════════ -->
+<header class="sticky top-0 z-40 glass backdrop-blur-xl border-b border-sky-500/10">
+  <div class="max-w-6xl mx-auto px-4 py-3 flex items-center gap-3">
+    <div class="w-11 h-11 rounded-2xl bg-gradient-to-br from-sky-500 to-indigo-600 flex items-center justify-center text-white text-lg shadow-lg shadow-sky-900/50 shrink-0">
+      <i class="fa-solid fa-bottle-droplet"></i>
+    </div>
+    <div class="min-w-0 flex-1">
+      <h1 class="font-extrabold text-[15px] md:text-lg tracking-tight text-white truncate">Rana Ahmad Milk Shop <span class="text-gold-400 font-semibold text-[11px] md:text-xs align-middle">EST. 1970</span></h1>
+      <p class="text-[11px] md:text-xs text-slate-400 truncate"><i class="fa-solid fa-microchip text-sky-400 mr-1"></i>RAMS Core OS v2.0 · Enterprise · <span class="text-emerald-400"><i class="fa-solid fa-wifi-slash mr-0.5"></i>100% Offline</span></p>
+    </div>
+    <div class="hidden md:block text-right text-[11px] text-slate-400 leading-4">
+      <div><i class="fa-solid fa-user-tie text-gold-400 mr-1"></i>Proprietor: <b class="text-slate-200">Ahmar Latif</b></div>
+      <div><i class="fa-solid fa-location-dot text-sky-400 mr-1"></i>Multan, Punjab, Pakistan</div>
+    </div>
+    <div class="flex gap-1.5 shrink-0">
+      <button onclick="exportBackup()" title="Export Backup (JSON)" class="w-9 h-9 rounded-xl bg-ink-700/60 hover:bg-ink-600 text-sky-300 text-sm transition"><i class="fa-solid fa-download"></i></button>
+      <button onclick="document.getElementById('importFile').click()" title="Import Backup" class="w-9 h-9 rounded-xl bg-ink-700/60 hover:bg-ink-600 text-sky-300 text-sm transition"><i class="fa-solid fa-upload"></i></button>
+      <input type="file" id="importFile" accept=".json" class="hidden" onchange="importBackup(this)">
+    </div>
+  </div>
+</header>
+
+<main class="max-w-6xl mx-auto px-3 md:px-4 mt-4">
+
+<!-- ══════════════ DESKTOP TABS ══════════════ -->
+<nav class="hidden md:flex gap-2 mb-5">
+  <button data-tab="summary" onclick="switchTab('summary')" class="tabBtn tab-active text-slate-400 hover:text-sky-300 transition"><span class="tab-pill px-5 py-2.5 rounded-xl font-semibold text-sm inline-flex items-center gap-2"><i class="fa-solid fa-table-cells-large"></i> Summary Sheet</span></button>
+  <button data-tab="daily" onclick="switchTab('daily')" class="tabBtn text-slate-400 hover:text-sky-300 transition"><span class="tab-pill px-5 py-2.5 rounded-xl font-semibold text-sm inline-flex items-center gap-2"><i class="fa-solid fa-bolt"></i> Daily Batch Entry</span></button>
+  <button data-tab="customers" onclick="switchTab('customers')" class="tabBtn text-slate-400 hover:text-sky-300 transition"><span class="tab-pill px-5 py-2.5 rounded-xl font-semibold text-sm inline-flex items-center gap-2"><i class="fa-solid fa-users"></i> Customers &amp; Statements</span></button>
+</nav>
+
+<!-- ════════════════════════════════════════════
+     TAB 1a · DIGITAL SUMMARY SHEET (Master Grid)
+════════════════════════════════════════════ -->
+<section id="tab-summary" class="tabPane fade-in">
+
+  <!-- KPI STAT CARDS -->
+  <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
+    <div class="glass stat-glow rounded-2xl p-4">
+      <div class="text-[11px] uppercase tracking-widest text-slate-400 font-semibold"><i class="fa-solid fa-users text-sky-400 mr-1"></i>Customers</div>
+      <div id="kpiCustomers" class="text-2xl font-extrabold text-white mt-1">0</div>
+    </div>
+    <div class="glass stat-glow rounded-2xl p-4">
+      <div class="text-[11px] uppercase tracking-widest text-slate-400 font-semibold"><i class="fa-solid fa-bottle-water text-sky-400 mr-1"></i>Liters · Month</div>
+      <div id="kpiLiters" class="text-2xl font-extrabold text-white mt-1">0</div>
+    </div>
+    <div class="glass stat-glow rounded-2xl p-4">
+      <div class="text-[11px] uppercase tracking-widest text-slate-400 font-semibold"><i class="fa-solid fa-hand-holding-dollar text-emerald-400 mr-1"></i>Collected · Month</div>
+      <div id="kpiCash" class="text-2xl font-extrabold text-emerald-400 mt-1">₨ 0</div>
+    </div>
+    <div class="glass stat-glow rounded-2xl p-4">
+      <div class="text-[11px] uppercase tracking-widest text-slate-400 font-semibold"><i class="fa-solid fa-scale-unbalanced text-rose-400 mr-1"></i>Net Receivable</div>
+      <div id="kpiDue" class="text-2xl font-extrabold text-rose-400 mt-1">₨ 0</div>
+    </div>
+  </div>
+
+  <!-- GRID CONTROLS -->
+  <div class="glass rounded-2xl p-4 mb-4 flex flex-wrap items-center gap-3">
+    <div class="flex items-center gap-2">
+      <i class="fa-solid fa-calendar-days text-sky-400"></i>
+      <label class="text-sm font-semibold text-slate-300">Billing Month</label>
+      <input type="month" id="gridMonth" onchange="renderGrid()" class="bg-ink-800 border border-ink-600 rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-sky-500">
+    </div>
+    <div class="relative flex-1 min-w-[180px]">
+      <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-xs"></i>
+      <input id="gridSearch" oninput="renderGrid()" placeholder="Search customer…" class="w-full bg-ink-800 border border-ink-600 rounded-xl pl-8 pr-3 py-2 text-sm text-white outline-none focus:border-sky-500">
+    </div>
+    <button onclick="openCustomerForm()" class="px-4 py-2 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 text-white text-sm font-bold shadow-lg shadow-sky-900/40 hover:brightness-110 transition"><i class="fa-solid fa-user-plus mr-1"></i> New Customer</button>
+  </div>
+
+  <!-- MONTHLY MASTER GRID -->
+  <div class="glass rounded-2xl overflow-hidden">
+    <div class="px-4 py-3 border-b border-sky-500/10 flex items-center justify-between">
+      <h2 class="font-bold text-white text-sm"><i class="fa-solid fa-table-list text-sky-400 mr-2"></i>Monthly Master Grid <span id="gridMonthLabel" class="text-slate-400 font-medium"></span></h2>
+      <span class="text-[10px] uppercase tracking-widest text-slate-500 font-bold">Baqi = Red · Advance = Green</span>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm min-w-[760px]">
+        <thead>
+          <tr class="text-left text-[11px] uppercase tracking-wider text-slate-400 bg-ink-800/70">
+            <th class="px-4 py-3 font-bold">Sr</th>
+            <th class="px-4 py-3 font-bold">Customer Name</th>
+            <th class="px-4 py-3 font-bold text-right">Opening Arrears</th>
+            <th class="px-4 py-3 font-bold text-right">Liters (Month)</th>
+            <th class="px-4 py-3 font-bold text-right">Current Bill</th>
+            <th class="px-4 py-3 font-bold text-right">Cash Paid (Jama)</th>
+            <th class="px-4 py-3 font-bold text-right">Closing (Baqi)</th>
+          </tr>
+        </thead>
+        <tbody id="gridBody" class="divide-y divide-ink-700/50"></tbody>
+        <tfoot id="gridFoot" class="bg-ink-800/80 font-bold text-white"></tfoot>
+      </table>
+    </div>
+    <div id="gridEmpty" class="hidden py-14 text-center text-slate-500">
+      <i class="fa-solid fa-box-open text-4xl mb-3 text-ink-600"></i>
+      <p class="text-sm">No customers yet. Tap <b class="text-sky-400">New Customer</b> to begin.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════
+     TAB 1b · DAILY BATCH ENTRY ENGINE
+════════════════════════════════════════════ -->
+<section id="tab-daily" class="tabPane hidden fade-in">
+  <div class="glass rounded-2xl p-4 mb-4">
+    <div class="flex flex-wrap items-end gap-3">
+      <div>
+        <label class="text-[11px] uppercase tracking-widest text-slate-400 font-bold block mb-1">Entry Date</label>
+        <input type="date" id="batchDate" onchange="renderBatch()" class="bg-ink-800 border border-ink-600 rounded-xl px-3 py-2.5 text-sm text-white outline-none focus:border-sky-500">
+      </div>
+      <div class="flex-1 min-w-[160px] text-[11px] text-slate-400 leading-5 pb-1">
+        <i class="fa-solid fa-circle-info text-sky-400 mr-1"></i>Type liters delivered and/or cash received per customer, then hit <b class="text-white">Save Day</b>. Re-opening a date lets you edit that day's batch safely.
+      </div>
+      <button onclick="saveBatch()" class="px-6 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 text-white text-sm font-extrabold shadow-lg shadow-emerald-900/40 hover:brightness-110 transition"><i class="fa-solid fa-floppy-disk mr-1"></i> SAVE DAY</button>
+    </div>
+  </div>
+
+  <div id="batchList" class="space-y-2.5"></div>
+  <div id="batchEmpty" class="hidden glass rounded-2xl py-14 text-center text-slate-500">
+    <i class="fa-solid fa-users-slash text-4xl mb-3 text-ink-600"></i>
+    <p class="text-sm">Add customers first from the Summary tab.</p>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════
+     TAB 2 · CUSTOMERS + STATEMENT ENGINE
+════════════════════════════════════════════ -->
+<section id="tab-customers" class="tabPane hidden fade-in">
+  <div class="glass rounded-2xl p-4 mb-4 flex flex-wrap gap-3 items-center">
+    <div class="relative flex-1 min-w-[180px]">
+      <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-xs"></i>
+      <input id="custSearch" oninput="renderCustomers()" placeholder="Search customers…" class="w-full bg-ink-800 border border-ink-600 rounded-xl pl-8 pr-3 py-2 text-sm text-white outline-none focus:border-sky-500">
+    </div>
+    <button onclick="openCustomerForm()" class="px-4 py-2 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 text-white text-sm font-bold shadow-lg shadow-sky-900/40 hover:brightness-110 transition"><i class="fa-solid fa-user-plus mr-1"></i> New Customer</button>
+  </div>
+  <div id="custList" class="grid md:grid-cols-2 gap-3"></div>
+  <div id="custEmpty" class="hidden glass rounded-2xl py-14 text-center text-slate-500">
+    <i class="fa-solid fa-user-plus text-4xl mb-3 text-ink-600"></i>
+    <p class="text-sm">No customer profiles yet.</p>
+  </div>
+</section>
+</main>
+
+<!-- ══════════════ MOBILE BOTTOM NAV ══════════════ -->
+<nav class="md:hidden fixed bottom-0 inset-x-0 z-40 glass backdrop-blur-xl border-t border-sky-500/10 grid grid-cols-3 text-center" style="padding-bottom:env(safe-area-inset-bottom)">
+  <button data-tab="summary" onclick="switchTab('summary')" class="tabBtn tab-active py-3 text-slate-400"><i class="fa-solid fa-table-cells-large block text-lg mb-0.5"></i><span class="text-[10px] font-bold">Summary</span></button>
+  <button data-tab="daily" onclick="switchTab('daily')" class="tabBtn py-3 text-slate-400"><i class="fa-solid fa-bolt block text-lg mb-0.5"></i><span class="text-[10px] font-bold">Daily Entry</span></button>
+  <button data-tab="customers" onclick="switchTab('customers')" class="tabBtn py-3 text-slate-400"><i class="fa-solid fa-users block text-lg mb-0.5"></i><span class="text-[10px] font-bold">Customers</span></button>
+</nav>
+
+<!-- ══════════════ CUSTOMER ADD/EDIT MODAL ══════════════ -->
+<div id="custModal" class="hidden fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-end md:items-center justify-center p-0 md:p-4" onclick="if(event.target===this)closeModal('custModal')">
+  <div class="modal-anim glass w-full md:max-w-md rounded-t-3xl md:rounded-3xl p-5 border-sky-500/20">
+    <div class="flex items-center justify-between mb-4">
+      <h3 id="custFormTitle" class="font-extrabold text-white text-lg"><i class="fa-solid fa-user-plus text-sky-400 mr-2"></i>New Customer</h3>
+      <button onclick="closeModal('custModal')" class="w-9 h-9 rounded-xl bg-ink-700 text-slate-300"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <input type="hidden" id="cf_id">
+    <div class="space-y-3">
+      <div>
+        <label class="text-[11px] uppercase tracking-widest text-slate-400 font-bold block mb-1">Full Name *</label>
+        <input id="cf_name" placeholder="e.g. Haji Muhammad Aslam" class="w-full bg-ink-800 border border-ink-600 rounded-xl px-3 py-2.5 text-sm text-white outline-none focus:border-sky-500">
+      </div>
+      <div>
+        <label class="text-[11px] uppercase tracking-widest text-slate-400 font-bold block mb-1">Phone</label>
+        <input id="cf_phone" placeholder="03xx-xxxxxxx" class="w-full bg-ink-800 border border-ink-600 rounded-xl px-3 py-2.5 text-sm text-white outline-none focus:border-sky-500">
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="text-[11px] uppercase tracking-widest text-slate-400 font-bold block mb-1">Default Rate / Liter</label>
+          <input id="cf_rate" type="number" min="0" step="any" placeholder="220" class="w-full bg-ink-800 border border-ink-600 rounded-xl px-3 py-2.5 text-sm text-white outline-none focus:border-sky-500">
+        </div>
+        <div>
+          <label class="text-[11px] uppercase tracking-widest text-slate-400 font-bold block mb-1">Opening Arrears (₨)</label>
+          <input id="cf_open" type="number" step="any" placeholder="0" class="w-full bg-ink-800 border border-ink-600 rounded-xl px-3 py-2.5 text-sm text-white outline-none focus:border-sky-500">
+        </div>
+      </div>
+      <button onclick="saveCustomer()" class="w-full py-3 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 text-white font-extrabold shadow-lg shadow-sky-900/40 hover:brightness-110 transition"><i class="fa-solid fa-floppy-disk mr-1"></i> Save Profile</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ CUSTOMER DEEP PROFILE MODAL ══════════════ -->
+<div id="profileModal" class="hidden fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-end md:items-center justify-center p-0 md:p-4" onclick="if(event.target===this)closeModal('profileModal')">
+  <div class="modal-anim glass w-full md:max-w-2xl rounded-t-3xl md:rounded-3xl border-sky-500/20 max-h-[92vh] flex flex-col">
+    <div class="p-5 pb-3 flex items-start justify-between border-b border-sky-500/10">
+      <div>
+        <h3 id="pf_name" class="font-extrabold text-white text-lg leading-tight"></h3>
+        <p id="pf_meta" class="text-xs text-slate-400 mt-0.5"></p>
+      </div>
+      <div class="flex gap-1.5">
+        <button id="pf_editBtn" class="w-9 h-9 rounded-xl bg-ink-700 text-sky-300" title="Edit"><i class="fa-solid fa-pen"></i></button>
+        <button id="pf_delBtn" class="w-9 h-9 rounded-xl bg-rose-900/40 text-rose-400" title="Delete"><i class="fa-solid fa-trash"></i></button>
+        <button onclick="closeModal('profileModal')" class="w-9 h-9 rounded-xl bg-ink-700 text-slate-300"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+    </div>
+
+    <div class="overflow-y-auto p-5 space-y-5">
+      <!-- live balance -->
+      <div id="pf_balance" class="rounded-2xl p-4 text-center"></div>
+
+      <!-- ── STATEMENT ENGINE WIDGET ── -->
+      <div class="rounded-2xl border border-gold-400/25 bg-gradient-to-br from-amber-500/10 to-transparent p-4">
+        <h4 class="font-extrabold text-gold-400 text-sm mb-3"><i class="fa-solid fa-file-invoice mr-2"></i>BANK-STYLE STATEMENT ENGINE</h4>
+        <div class="grid grid-cols-2 gap-3 mb-3">
+          <div>
+            <label class="text-[10px] uppercase tracking-widest text-slate-400 font-bold block mb-1">From Date</label>
+            <input type="date" id="st_from" class="w-full bg-ink-800 border border-ink-600 rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-gold-400">
+          </div>
+          <div>
+            <label class="text-[10px] uppercase tracking-widest text-slate-400 font-bold block mb-1">To Date</label>
+            <input type="date" id="st_to" class="w-full bg-ink-800 border border-ink-600 rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-gold-400">
+          </div>
+        </div>
+        <button onclick="generateStatement()" class="w-full py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 text-ink-950 font-extrabold text-sm shadow-lg shadow-amber-900/30 hover:brightness-110 transition"><i class="fa-solid fa-wand-magic-sparkles mr-1"></i> GENERATE STATEMENT</button>
+      </div>
+
+      <!-- manual entry -->
+      <div class="rounded-2xl border border-ink-600/60 p-4">
+        <h4 class="font-bold text-white text-sm mb-3"><i class="fa-solid fa-plus text-sky-400 mr-2"></i>Add Ledger Entry</h4>
+        <div class="grid grid-cols-2 gap-3">
+          <input type="date" id="le_date" class="bg-ink-800 border border-ink-600 rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-sky-500">
+          <select id="le_type" onchange="toggleEntryType()" class="bg-ink-800 border border-ink-600 rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-sky-500">
+            <option value="MILK">Milk Delivered</option>
+            <option value="CASH">Cash Received</option>
+          </select>
+          <input type="number" id="le_liters" min="0" step="any" placeholder="Liters" class="bg-ink-800 border border-ink-600 rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-sky-500">
+          <input type="number" id="le_rate" min="0" step="any" placeholder="Rate/Liter" class="bg-ink-800 border border-ink-600 rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-sky-500">
+          <input type="number" id="le_amount" min="0" step="any" placeholder="Cash Amount ₨" class="hidden bg-ink-800 border border-ink-600 rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-emerald-500 col-span-2">
+          <input id="le_note" placeholder="Note (optional)" class="col-span-2 bg-ink-800 border border-ink-600 rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-sky-500">
+        </div>
+        <button onclick="addLedgerEntry()" class="mt-3 w-full py-2.5 rounded-xl bg-ink-700 hover:bg-ink-600 text-sky-300 font-bold text-sm transition"><i class="fa-solid fa-circle-plus mr-1"></i> Post Entry</button>
+      </div>
+
+      <!-- daily ledger log -->
+      <div>
+        <h4 class="font-bold text-white text-sm mb-2"><i class="fa-solid fa-clock-rotate-left text-sky-400 mr-2"></i>Daily Ledger Logs</h4>
+        <div id="pf_logs" class="space-y-1.5 max-h-72 overflow-y-auto pr-1"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ STATEMENT PREVIEW OVERLAY (BANK-STYLE, HIGH CONTRAST) ══════════════ -->
+<div id="stmtModal" class="hidden fixed inset-0 z-[60] bg-black/80 backdrop-blur-md overflow-y-auto p-2 md:p-6" onclick="if(event.target===this)closeModal('stmtModal')">
+  <div class="max-w-3xl mx-auto">
+    <!-- action bar (never printed) -->
+    <div class="flex justify-end gap-2 mb-3 print:hidden">
+      <button onclick="window.print()" class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 text-white text-sm font-extrabold shadow-lg"><i class="fa-solid fa-print mr-1"></i> Print / Save PDF</button>
+      <button onclick="closeModal('stmtModal')" class="px-5 py-2.5 rounded-xl bg-ink-700 text-white text-sm font-bold"><i class="fa-solid fa-xmark mr-1"></i> Close</button>
+    </div>
+    <!-- the paper -->
+    <div id="stmtPaper" class="modal-anim bg-white text-slate-900 rounded-2xl shadow-2xl overflow-hidden"></div>
+  </div>
+</div>
+
+<!-- ══════════════ TOAST ══════════════ -->
+<div id="toast" class="fixed left-1/2 -translate-x-1/2 bottom-24 md:bottom-8 z-[70] hidden px-5 py-3 rounded-2xl glass border-emerald-500/30 text-sm font-bold text-white shadow-2xl"></div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════
+   RAMS CORE OS v2.0 — ENTERPRISE EDITION
+   Offline relational ledger · localStorage persistence
+   Schema: { customers:[{ id, name, phone, rate, opening,
+             logs:[{ id, date, type:'MILK'|'CASH', liters,
+                     rate, amount, note, src }] }] }
+═══════════════════════════════════════════════════════════ */
+const BIZ = {
+  name: 'Rana Ahmad Milk Shop', est: '1970',
+  proprietor: 'Ahmar Latif',
+  branch: 'Multan, Punjab, Pakistan',
+  helpline: '+92 300-XXXXXXX (Support: 24/7)',
+  email: 'support@ranaahmadmilk.shop'
+};
+const DB_KEY = 'rams_core_os_v2';
+let db = loadDB();
+let activeCustomerId = null;
+
+function loadDB(){
+  try { const d = JSON.parse(localStorage.getItem(DB_KEY)); if (d && Array.isArray(d.customers)) return d; } catch(e){}
+  return { customers: [], createdAt: new Date().toISOString() };
+}
+function persist(){ localStorage.setItem(DB_KEY, JSON.stringify(db)); }
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+const money = n => '₨ ' + Math.abs(Math.round(n)).toLocaleString('en-PK');
+const fmtL = n => (Math.round(n*100)/100).toLocaleString('en-PK');
+const todayISO = () => new Date().toISOString().slice(0,10);
+const thisMonth = () => todayISO().slice(0,7);
+const fmtDate = iso => new Date(iso + 'T00:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
+const getCust = id => db.customers.find(c => c.id === id);
+const esc = s => String(s??'').replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+
+/* ── FINANCIAL CORE ─────────────────────────────── */
+// signed effect of a log on balance: milk charge adds, cash payment subtracts
+const logDelta = l => l.type === 'MILK' ? l.amount : -l.amount;
+// net charges-payments strictly BEFORE a date
+const netBefore = (c, iso) => c.logs.filter(l => l.date < iso).reduce((s,l) => s + logDelta(l), 0);
+// current live balance (+ = customer owes / Baqi, − = advance)
+const liveBalance = c => (c.opening||0) + c.logs.reduce((s,l) => s + logDelta(l), 0);
+const sortedLogs = c => [...c.logs].sort((a,b) => a.date === b.date ? (a.ts||0)-(b.ts||0) : (a.date < b.date ? -1 : 1));
+
+function monthStats(c, ym){
+  const start = ym + '-01';
+  const opening = (c.opening||0) + netBefore(c, start);
+  const mLogs = c.logs.filter(l => l.date.startsWith(ym));
+  const liters = mLogs.filter(l=>l.type==='MILK').reduce((s,l)=>s+(+l.liters||0),0);
+  const bill   = mLogs.filter(l=>l.type==='MILK').reduce((s,l)=>s+l.amount,0);
+  const cash   = mLogs.filter(l=>l.type==='CASH').reduce((s,l)=>s+l.amount,0);
+  return { opening, liters, bill, cash, closing: opening + bill - cash };
+}
+
+/* ── TABS ───────────────────────────────────────── */
+function switchTab(name){
+  document.querySelectorAll('.tabPane').forEach(p => p.classList.add('hidden'));
+  document.getElementById('tab-'+name).classList.remove('hidden');
+  document.querySelectorAll('.tabBtn').forEach(b => b.classList.toggle('tab-active', b.dataset.tab === name));
+  if (name==='summary') renderGrid();
+  if (name==='daily') renderBatch();
+  if (name==='customers') renderCustomers();
+}
+
+/* ── TOAST ──────────────────────────────────────── */
+let toastTimer;
+function toast(msg, icon='fa-circle-check', tone='text-emerald-400'){
+  const t = document.getElementById('toast');
+  t.innerHTML = `<i class="fa-solid ${icon} ${tone} mr-2"></i>${msg}`;
+  t.classList.remove('hidden');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>t.classList.add('hidden'), 2600);
+}
+function closeModal(id){ document.getElementById(id).classList.add('hidden'); }
+
+/* ── BALANCE PILL ───────────────────────────────── */
+function balBadge(v, bold=true){
+  if (Math.round(v) === 0) return `<span class="text-slate-400 ${bold?'font-bold':''}">₨ 0</span>`;
+  return v > 0
+    ? `<span class="text-rose-500 ${bold?'font-extrabold':''}">${money(v)} <span class="text-[10px] font-bold">DUE</span></span>`
+    : `<span class="text-emerald-400 ${bold?'font-extrabold':''}">${money(v)} <span class="text-[10px] font-bold">ADV</span></span>`;
+}
+
+/* ═══ TAB 1a · MONTHLY MASTER GRID ═══ */
+function renderGrid(){
+  const ym = document.getElementById('gridMonth').value || thisMonth();
+  const q = (document.getElementById('gridSearch').value||'').toLowerCase();
+  const label = new Date(ym+'-01T00:00:00').toLocaleDateString('en-GB',{month:'long',year:'numeric'});
+  document.getElementById('gridMonthLabel').textContent = '· ' + label;
+
+  const rows = db.customers
+    .filter(c => c.name.toLowerCase().includes(q))
+    .map(c => ({ c, s: monthStats(c, ym) }));
+
+  const body = document.getElementById('gridBody');
+  const foot = document.getElementById('gridFoot');
+  const empty = document.getElementById('gridEmpty');
+  empty.classList.toggle('hidden', db.customers.length > 0);
+
+  body.innerHTML = rows.map((r,i)=>`
+    <tr class="hover:bg-sky-500/5 cursor-pointer transition" onclick="openProfile('${r.c.id}')">
+      <td class="px-4 py-3 text-slate-500 font-mono text-xs">${String(i+1).padStart(2,'0')}</td>
+      <td class="px-4 py-3 font-semibold text-white">${esc(r.c.name)}<div class="text-[10px] text-slate-500 font-normal">${esc(r.c.phone||'—')} · ₨${r.c.rate||0}/L</div></td>
+      <td class="px-4 py-3 text-right">${balBadge(r.s.opening, false)}</td>
+      <td class="px-4 py-3 text-right text-sky-300 font-semibold">${fmtL(r.s.liters)} L</td>
+      <td class="px-4 py-3 text-right text-slate-200">${money(r.s.bill)}</td>
+      <td class="px-4 py-3 text-right text-emerald-400 font-semibold">${money(r.s.cash)}</td>
+      <td class="px-4 py-3 text-right">${balBadge(r.s.closing)}</td>
+    </tr>`).join('');
+
+  const T = rows.reduce((a,r)=>({o:a.o+r.s.opening,l:a.l+r.s.liters,b:a.b+r.s.bill,c:a.c+r.s.cash,z:a.z+r.s.closing}),{o:0,l:0,b:0,c:0,z:0});
+  foot.innerHTML = rows.length ? `
+    <tr>
+      <td class="px-4 py-3" colspan="2"><i class="fa-solid fa-sigma text-sky-400 mr-1"></i>TOTALS</td>
+      <td class="px-4 py-3 text-right">${balBadge(T.o)}</td>
+      <td class="px-4 py-3 text-right text-sky-300">${fmtL(T.l)} L</td>
+      <td class="px-4 py-3 text-right">${money(T.b)}</td>
+      <td class="px-4 py-3 text-right text-emerald-400">${money(T.c)}</td>
+      <td class="px-4 py-3 text-right">${balBadge(T.z)}</td>
+    </tr>` : '';
+
+  // KPIs
+  document.getElementById('kpiCustomers').textContent = db.customers.length;
+  document.getElementById('kpiLiters').textContent = fmtL(T.l) + ' L';
+  document.getElementById('kpiCash').textContent = money(T.c);
+  const netDue = db.customers.reduce((s,c)=>s+liveBalance(c),0);
+  const kd = document.getElementById('kpiDue');
+  kd.textContent = money(netDue);
+  kd.className = 'text-2xl font-extrabold mt-1 ' + (netDue > 0 ? 'text-rose-400' : 'text-emerald-400');
+}
+
+/* ═══ TAB 1b · DAILY BATCH ENTRY ═══ */
+function renderBatch(){
+  const d = document.getElementById('batchDate').value || todayISO();
+  document.getElementById('batchDate').value = d;
+  const list = document.getElementById('batchList');
+  document.getElementById('batchEmpty').classList.toggle('hidden', db.customers.length > 0);
+
+  list.innerHTML = db.customers.map(c => {
+    // prefill from existing batch-source logs on this date
+    const dayLogs = c.logs.filter(l => l.date === d && l.src === 'batch');
+    const milk = dayLogs.find(l => l.type === 'MILK');
+    const cash = dayLogs.find(l => l.type === 'CASH');
+    const manual = c.logs.some(l => l.date === d && l.src !== 'batch');
+    return `
+    <div class="glass rounded-2xl p-3.5 flex flex-wrap items-center gap-3">
+      <div class="flex-1 min-w-[130px]">
+        <div class="font-bold text-white text-sm">${esc(c.name)}</div>
+        <div class="text-[10px] text-slate-500">Balance: ${balBadge(liveBalance(c), false)} ${manual ? '· <span class="text-gold-400"><i class="fa-solid fa-circle-exclamation"></i> has manual entry today</span>' : ''}</div>
+      </div>
+      <div class="flex items-center gap-2">
+        <div class="relative">
+          <i class="fa-solid fa-bottle-water absolute left-2.5 top-1/2 -translate-y-1/2 text-sky-400 text-xs"></i>
+          <input type="number" min="0" step="any" data-cid="${c.id}" data-f="liters" value="${milk ? milk.liters : ''}" placeholder="Liters" class="w-24 bg-ink-800 border border-ink-600 rounded-xl pl-8 pr-2 py-2.5 text-sm text-white outline-none focus:border-sky-500">
+        </div>
+        <div class="relative">
+          <i class="fa-solid fa-tag absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500 text-xs"></i>
+          <input type="number" min="0" step="any" data-cid="${c.id}" data-f="rate" value="${milk ? milk.rate : (c.rate||'')}" placeholder="Rate" class="w-20 bg-ink-800 border border-ink-600 rounded-xl pl-7 pr-2 py-2.5 text-sm text-white outline-none focus:border-sky-500">
+        </div>
+        <div class="relative">
+          <i class="fa-solid fa-money-bill-wave absolute left-2.5 top-1/2 -translate-y-1/2 text-emerald-400 text-xs"></i>
+          <input type="number" min="0" step="any" data-cid="${c.id}" data-f="cash" value="${cash ? cash.amount : ''}" placeholder="Cash ₨" class="w-24 bg-ink-800 border border-ink-600 rounded-xl pl-8 pr-2 py-2.5 text-sm text-white outline-none focus:border-emerald-500">
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function saveBatch(){
+  const d = document.getElementById('batchDate').value;
+  if (!d) return toast('Pick a date first','fa-triangle-exclamation','text-amber-400');
+  let touched = 0;
+  db.customers.forEach(c => {
+    const get = f => { const el = document.querySelector(`#batchList input[data-cid="${c.id}"][data-f="${f}"]`); return el ? parseFloat(el.value) || 0 : 0; };
+    const liters = get('liters'), rate = get('rate') || c.rate || 0, cash = get('cash');
+    // replace only this date's BATCH logs (manual entries are preserved)
+    const before = c.logs.length;
+    c.logs = c.logs.filter(l => !(l.date === d && l.src === 'batch'));
+    if (liters > 0) c.logs.push({ id: uid(), ts: Date.now(), date: d, type: 'MILK', liters, rate, amount: Math.round(liters * rate * 100)/100, note: '', src: 'batch' });
+    if (cash > 0)   c.logs.push({ id: uid(), ts: Date.now(), date: d, type: 'CASH', liters: 0, rate: 0, amount: cash, note: '', src: 'batch' });
+    if (c.logs.length !== before || liters > 0 || cash > 0) touched++;
+  });
+  persist();
+  renderBatch();
+  toast(`Day saved · ${fmtDate(d)} · ${touched} record(s) updated`);
+}
+
+/* ═══ CUSTOMER CRUD ═══ */
+function openCustomerForm(id){
+  const c = id ? getCust(id) : null;
+  document.getElementById('custFormTitle').innerHTML = c
+    ? '<i class="fa-solid fa-pen text-sky-400 mr-2"></i>Edit Customer'
+    : '<i class="fa-solid fa-user-plus text-sky-400 mr-2"></i>New Customer';
+  document.getElementById('cf_id').value = c ? c.id : '';
+  document.getElementById('cf_name').value = c ? c.name : '';
+  document.getElementById('cf_phone').value = c ? (c.phone||'') : '';
+  document.getElementById('cf_rate').value = c ? (c.rate||'') : '';
+  document.getElementById('cf_open').value = c ? (c.opening||'') : '';
+  document.getElementById('custModal').classList.remove('hidden');
+  setTimeout(()=>document.getElementById('cf_name').focus(), 60);
+}
+
+function saveCustomer(){
+  const id = document.getElementById('cf_id').value;
+  const name = document.getElementById('cf_name').value.trim();
+  if (!name) return toast('Name is required','fa-triangle-exclamation','text-amber-400');
+  const phone = document.getElementById('cf_phone').value.trim();
+  const rate = parseFloat(document.getElementById('cf_rate').value) || 0;
+  const opening = parseFloat(document.getElementById('cf_open').value) || 0;
+  if (id) { Object.assign(getCust(id), { name, phone, rate, opening }); }
+  else db.customers.push({ id: uid(), name, phone, rate, opening, logs: [] });
+  persist();
+  closeModal('custModal');
+  renderGrid(); renderCustomers(); renderBatch();
+  if (activeCustomerId === id) openProfile(id);
+  toast(`Profile saved · ${esc(name)}`);
+}
+
+function deleteCustomer(id){
+  const c = getCust(id);
+  if (!confirm(`Delete "${c.name}" and all ${c.logs.length} ledger logs permanently?`)) return;
+  db.customers = db.customers.filter(x => x.id !== id);
+  persist();
+  closeModal('profileModal');
+  renderGrid(); renderCustomers(); renderBatch();
+  toast('Customer deleted','fa-trash','text-rose-400');
+}
+
+/* ═══ TAB 2 · CUSTOMER CARDS ═══ */
+function renderCustomers(){
+  const q = (document.getElementById('custSearch').value||'').toLowerCase();
+  const list = db.customers.filter(c => c.name.toLowerCase().includes(q));
+  document.getElementById('custEmpty').classList.toggle('hidden', db.customers.length > 0);
+  document.getElementById('custList').innerHTML = list.map(c => {
+    const bal = liveBalance(c);
+    return `
+    <div class="glass rounded-2xl p-4 cursor-pointer hover:border-sky-500/30 transition group" onclick="openProfile('${c.id}')">
+      <div class="flex items-center gap-3">
+        <div class="w-11 h-11 rounded-2xl bg-gradient-to-br ${bal>0?'from-rose-500/25 to-rose-900/40 text-rose-400':'from-emerald-500/25 to-emerald-900/40 text-emerald-400'} flex items-center justify-center font-extrabold text-sm shrink-0">${esc(c.name.trim().split(/\s+/).map(w=>w[0]).slice(0,2).join('').toUpperCase())}</div>
+        <div class="flex-1 min-w-0">
+          <div class="font-bold text-white truncate group-hover:text-sky-300 transition">${esc(c.name)}</div>
+          <div class="text-[11px] text-slate-500">${esc(c.phone||'no phone')} · ₨${c.rate||0}/L · ${c.logs.length} logs</div>
+        </div>
+        <div class="text-right text-sm">${balBadge(bal)}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+/* ═══ DEEP PROFILE ═══ */
+function openProfile(id){
+  const c = getCust(id); if (!c) return;
+  activeCustomerId = id;
+  document.getElementById('pf_name').textContent = c.name;
+  document.getElementById('pf_meta').innerHTML = `<i class="fa-solid fa-phone text-sky-400 mr-1"></i>${esc(c.phone||'—')} &nbsp;·&nbsp; <i class="fa-solid fa-tag text-sky-400 mr-1"></i>₨${c.rate||0}/L &nbsp;·&nbsp; Opening Arrears: ${money(c.opening||0)}`;
+  document.getElementById('pf_editBtn').onclick = () => openCustomerForm(id);
+  document.getElementById('pf_delBtn').onclick = () => deleteCustomer(id);
+
+  const bal = liveBalance(c);
+  const bd = document.getElementById('pf_balance');
+  bd.className = 'rounded-2xl p-4 text-center border ' + (bal > 0 ? 'border-rose-500/30 bg-rose-500/10' : 'border-emerald-500/30 bg-emerald-500/10');
+  bd.innerHTML = `<div class="text-[10px] uppercase tracking-[0.2em] font-bold ${bal>0?'text-rose-400':'text-emerald-400'}">Live Closing Balance</div>
+    <div class="text-3xl font-extrabold mt-1 ${bal>0?'text-rose-400':'text-emerald-400'}">${money(bal)}</div>
+    <div class="text-[11px] mt-0.5 ${bal>0?'text-rose-300/70':'text-emerald-300/70'}">${Math.round(bal)===0?'Fully settled':bal>0?'Outstanding — customer owes (Baqi)':'Advance held (Jama)'}</div>`;
+
+  // default statement window = current month so far
+  document.getElementById('st_from').value = thisMonth() + '-01';
+  document.getElementById('st_to').value = todayISO();
+  document.getElementById('le_date').value = todayISO();
+  document.getElementById('le_rate').value = c.rate || '';
+  toggleEntryType();
+
+  renderProfileLogs(c);
+  document.getElementById('profileModal').classList.remove('hidden');
+}
+
+function renderProfileLogs(c){
+  const logs = sortedLogs(c).reverse();
+  document.getElementById('pf_logs').innerHTML = logs.length ? logs.map(l => `
+    <div class="flex items-center gap-2.5 bg-ink-800/60 rounded-xl px-3 py-2 text-sm">
+      <i class="fa-solid ${l.type==='MILK'?'fa-bottle-water text-sky-400':'fa-money-bill-wave text-emerald-400'} w-4 text-center"></i>
+      <div class="flex-1 min-w-0">
+        <span class="font-semibold text-slate-200">${l.type==='MILK' ? fmtL(l.liters)+' L @ ₨'+l.rate : 'Cash Received'}</span>
+        <span class="text-[10px] text-slate-500 ml-1">${fmtDate(l.date)}${l.note?' · '+esc(l.note):''}${l.src==='batch'?' · batch':''}</span>
+      </div>
+      <span class="font-bold ${l.type==='MILK'?'text-slate-200':'text-emerald-400'}">${l.type==='MILK'?'+':'−'}${money(l.amount)}</span>
+      <button onclick="deleteLog('${c.id}','${l.id}')" class="text-slate-600 hover:text-rose-400 transition px-1"><i class="fa-solid fa-xmark"></i></button>
+    </div>`).join('') : '<div class="text-center text-slate-500 text-sm py-6">No ledger entries yet.</div>';
+}
+
+function toggleEntryType(){
+  const isMilk = document.getElementById('le_type').value === 'MILK';
+  document.getElementById('le_liters').classList.toggle('hidden', !isMilk);
+  document.getElementById('le_rate').classList.toggle('hidden', !isMilk);
+  document.getElementById('le_amount').classList.toggle('hidden', isMilk);
+}
+
+function addLedgerEntry(){
+  const c = getCust(activeCustomerId); if (!c) return;
+  const date = document.getElementById('le_date').value;
+  if (!date) return toast('Pick entry date','fa-triangle-exclamation','text-amber-400');
+  const type = document.getElementById('le_type').value;
+  const note = document.getElementById('le_note').value.trim();
+  if (type === 'MILK') {
+    const liters = parseFloat(document.getElementById('le_liters').value) || 0;
+    const rate = parseFloat(document.getElementById('le_rate').value) || 0;
+    if (liters <= 0 || rate <= 0) return toast('Enter valid liters & rate','fa-triangle-exclamation','text-amber-400');
+    c.logs.push({ id: uid(), ts: Date.now(), date, type, liters, rate, amount: Math.round(liters*rate*100)/100, note, src: 'manual' });
+  } else {
+    const amt = parseFloat(document.getElementById('le_amount').value) || 0;
+    if (amt <= 0) return toast('Enter valid cash amount','fa-triangle-exclamation','text-amber-400');
+    c.logs.push({ id: uid(), ts: Date.now(), date, type, liters: 0, rate: 0, amount: amt, note, src: 'manual' });
+  }
+  persist();
+  document.getElementById('le_liters').value = '';
+  document.getElementById('le_amount').value = '';
+  document.getElementById('le_note').value = '';
+  openProfile(c.id);
+  renderGrid(); renderCustomers();
+  toast('Entry posted');
+}
+
+function deleteLog(cid, lid){
+  const c = getCust(cid); if (!c) return;
+  if (!confirm('Delete this ledger entry?')) return;
+  c.logs = c.logs.filter(l => l.id !== lid);
+  persist();
+  openProfile(cid);
+  renderGrid(); renderCustomers(); renderBatch();
+  toast('Entry removed','fa-trash','text-rose-400');
+}
+
+/* ═══ TAB 2 · CUSTOM-RANGE STATEMENT ENGINE ═══ */
+function stmtRef(){
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let r = ''; for (let i=0;i<8;i++) r += chars[Math.floor(Math.random()*chars.length)];
+  return `RAMS-MTN-${new Date().getFullYear()}-${r}`;
+}
+
+function generateStatement(){
+  const c = getCust(activeCustomerId); if (!c) return;
+  const from = document.getElementById('st_from').value;
+  const to = document.getElementById('st_to').value;
+  if (!from || !to) return toast('Select both From & To dates','fa-triangle-exclamation','text-amber-400');
+  if (from > to) return toast('From date must be before To date','fa-triangle-exclamation','text-amber-400');
+
+  // ── live filter: logs strictly within [from, to] ──
+  const opening = (c.opening||0) + netBefore(c, from);
+  const rows = sortedLogs(c).filter(l => l.date >= from && l.date <= to);
+  const charges = rows.filter(l=>l.type==='MILK').reduce((s,l)=>s+l.amount,0);
+  const paid    = rows.filter(l=>l.type==='CASH').reduce((s,l)=>s+l.amount,0);
+  const liters  = rows.filter(l=>l.type==='MILK').reduce((s,l)=>s+(+l.liters||0),0);
+  const closing = opening + charges - paid;
+  const ref = stmtRef();
+  const genAt = new Date().toLocaleString('en-GB',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit'});
+
+  let running = opening;
+  const bodyRows = rows.map((l,i) => {
+    running += logDelta(l);
+    return `
+    <tr class="${i%2 ? 'bg-slate-50' : 'bg-white'}">
+      <td class="px-3 py-2 text-xs text-slate-500 font-mono whitespace-nowrap">${fmtDate(l.date)}</td>
+      <td class="px-3 py-2 text-xs">
+        <span class="inline-flex items-center gap-1 font-semibold ${l.type==='MILK'?'text-sky-700':'text-emerald-700'}">
+          ${l.type==='MILK' ? 'Milk Delivered' : 'Cash Received'}
+        </span>${l.note ? `<span class="text-slate-400"> — ${esc(l.note)}</span>` : ''}
+      </td>
+      <td class="px-3 py-2 text-xs text-right text-slate-600">${l.type==='MILK' ? fmtL(l.liters)+' L @ '+l.rate : '—'}</td>
+      <td class="px-3 py-2 text-xs text-right font-semibold text-slate-800">${l.type==='MILK' ? money(l.amount) : ''}</td>
+      <td class="px-3 py-2 text-xs text-right font-semibold text-emerald-700">${l.type==='CASH' ? money(l.amount) : ''}</td>
+      <td class="px-3 py-2 text-xs text-right font-bold ${running>0?'text-red-600':'text-emerald-700'}">${money(running)}${running<0?' CR':''}</td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('stmtPaper').innerHTML = `
+  <!-- HEADER BLOCK -->
+  <div class="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 text-white px-6 md:px-8 py-6">
+    <div class="flex items-start justify-between gap-4 flex-wrap">
+      <div class="flex items-center gap-3">
+        <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-sky-400 to-indigo-500 flex items-center justify-center text-xl"><i class="fa-solid fa-bottle-droplet"></i></div>
+        <div>
+          <div class="font-extrabold text-lg leading-tight tracking-tight">${BIZ.name} <span class="text-amber-400 text-xs font-bold">EST. ${BIZ.est}</span></div>
+          <div class="text-[11px] text-slate-300">Proprietor: <b>${BIZ.proprietor}</b> &nbsp;·&nbsp; Branch: ${BIZ.branch}</div>
+        </div>
+      </div>
+      <div class="text-right text-[10px] text-slate-300 leading-4">
+        <div class="inline-block bg-white/10 rounded-lg px-3 py-1.5 font-mono tracking-wider text-amber-300 font-bold">${ref}</div>
+        <div class="mt-1">Generated: ${genAt}</div>
+        <div><i class="fa-solid fa-shield-halved text-emerald-400 mr-1"></i>SECURE OFFLINE DOCUMENT</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- STATEMENT PERIOD BANNER -->
+  <div class="bg-amber-50 border-y border-amber-200 px-6 md:px-8 py-3 text-center">
+    <span class="text-[10px] uppercase tracking-[0.25em] text-amber-700 font-extrabold">Statement of Account for the Period</span>
+    <div class="font-extrabold text-slate-900 text-base">${fmtDate(from)} &nbsp;<i class="fa-solid fa-arrow-right-long text-amber-500 text-xs"></i>&nbsp; ${fmtDate(to)}</div>
+  </div>
+
+  <!-- ACCOUNT HOLDER -->
+  <div class="px-6 md:px-8 py-4 flex flex-wrap justify-between gap-3 border-b border-slate-200">
+    <div>
+      <div class="text-[10px] uppercase tracking-widest text-slate-400 font-bold">Account Holder</div>
+      <div class="font-extrabold text-slate-900 text-lg">${esc(c.name)}</div>
+      <div class="text-xs text-slate-500">${esc(c.phone||'')} · Std. Rate ₨${c.rate||0}/Liter · A/C ID: <span class="font-mono">${c.id.toUpperCase()}</span></div>
+    </div>
+    <div class="text-right">
+      <div class="text-[10px] uppercase tracking-widest text-slate-400 font-bold">Opening Balance (at ${fmtDate(from)})</div>
+      <div class="font-extrabold text-lg ${opening>0?'text-red-600':'text-emerald-600'}">${money(opening)} ${opening>0?'DR':opening<0?'CR':''}</div>
+    </div>
+  </div>
+
+  <!-- ITEMIZED TRANSACTION TABLE -->
+  <div class="px-4 md:px-8 py-4 overflow-x-auto">
+    <table class="w-full min-w-[560px] border border-slate-200 rounded-lg overflow-hidden">
+      <thead>
+        <tr class="bg-slate-900 text-white text-[10px] uppercase tracking-wider">
+          <th class="px-3 py-2.5 text-left font-bold">Date</th>
+          <th class="px-3 py-2.5 text-left font-bold">Transaction Detail</th>
+          <th class="px-3 py-2.5 text-right font-bold">Qty / Rate</th>
+          <th class="px-3 py-2.5 text-right font-bold">Debit (Bill)</th>
+          <th class="px-3 py-2.5 text-right font-bold">Credit (Jama)</th>
+          <th class="px-3 py-2.5 text-right font-bold">Balance</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-100">
+        ${bodyRows || `<tr><td colspan="6" class="px-3 py-8 text-center text-slate-400 text-sm">No transactions recorded within this period.</td></tr>`}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- FINANCIAL SUMMARY BOX -->
+  <div class="px-6 md:px-8 pb-5">
+    <div class="ml-auto max-w-sm border-2 border-slate-900 rounded-xl overflow-hidden">
+      <div class="bg-slate-900 text-white text-[10px] uppercase tracking-[0.2em] font-extrabold px-4 py-2"><i class="fa-solid fa-calculator mr-1"></i>Financial Summary</div>
+      <div class="divide-y divide-slate-200 text-sm">
+        <div class="flex justify-between px-4 py-2"><span class="text-slate-500">Opening Balance at Start of Period</span><b class="${opening>0?'text-red-600':'text-emerald-600'}">${money(opening)}</b></div>
+        <div class="flex justify-between px-4 py-2"><span class="text-slate-500">Total Milk Charges (${fmtL(liters)} L)</span><b class="text-slate-800">${money(charges)}</b></div>
+        <div class="flex justify-between px-4 py-2"><span class="text-slate-500">Total Cash Collected</span><b class="text-emerald-600">− ${money(paid)}</b></div>
+        <div class="flex justify-between px-4 py-2.5 ${closing>0?'bg-red-50':'bg-emerald-50'}">
+          <span class="font-extrabold text-slate-900">Final Net Closing Balance</span>
+          <span class="font-extrabold ${closing>0?'text-red-600':'text-emerald-600'}">${money(closing)} ${closing>0?'DUE':closing<0?'ADVANCE':'SETTLED'}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- OFFICIAL LEGAL FOOTER -->
+  <div class="bg-slate-100 border-t border-slate-200 px-6 md:px-8 py-4 text-center">
+    <p class="text-[10px] text-slate-500 leading-5">
+      <i class="fa-solid fa-lock text-slate-400 mr-1"></i>This is a system-generated secure statement.
+      Helpline: <b>${BIZ.helpline.split(' (')[0]}</b> · Email: <b>${BIZ.email}</b><br>
+      <b>Security Disclaimer:</b> No signature required. · Document Ref: <span class="font-mono">${ref}</span> · RAMS Core OS v2.0 Enterprise
+    </p>
+  </div>`;
+
+  document.getElementById('stmtModal').classList.remove('hidden');
+}
+
+/* ═══ BACKUP / RESTORE ═══ */
+function exportBackup(){
+  const blob = new Blob([JSON.stringify(db, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `RAMS-Backup-${todayISO()}.json`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+  toast('Backup exported','fa-download');
+}
+function importBackup(input){
+  const f = input.files[0]; if (!f) return;
+  const r = new FileReader();
+  r.onload = () => {
+    try {
+      const d = JSON.parse(r.result);
+      if (!d || !Array.isArray(d.customers)) throw 0;
+      if (!confirm(`Restore backup with ${d.customers.length} customer(s)? Current data will be replaced.`)) return;
+      db = d; persist();
+      renderGrid(); renderCustomers(); renderBatch();
+      toast('Backup restored','fa-upload');
+    } catch(e){ toast('Invalid backup file','fa-triangle-exclamation','text-rose-400'); }
+    input.value = '';
+  };
+  r.readAsText(f);
+}
+
+/* ═══ BOOT ═══ */
+document.getElementById('gridMonth').value = thisMonth();
+document.getElementById('batchDate').value = todayISO();
+renderGrid(); renderBatch(); renderCustomers();
+</script>
+</body>
+</html>
